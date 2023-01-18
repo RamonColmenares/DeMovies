@@ -24,12 +24,12 @@ Requirements:
 
 #How to run this program
 
-#1 Please that you have Maven installed in your terminal with 
+#1 Please check that you have Maven installed in your terminal with 
     
     - mvn --version
     
-#2 Start docker 
+#2 Start docker, or your container tool
     
-#3 Go to the rut folder and run make.sh file
+#3 Go to the root folder and run make.sh file
 
   - ./make.sh
