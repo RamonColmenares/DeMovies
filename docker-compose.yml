@@ -1,0 +1,150 @@
+version: "3.9"
+services:
+  mongodb:
+    image: mongo
+    container_name: "mongodb"
+    command: mongod --auth
+    environment:
+      - MONGO_INITDB_DATABASE=admin
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=root
+    volumes:
+      - type: volume
+        source: mongodb_data_volume
+        target: /data/db
+      - ./config/mongo-init.js:/config/mongo-init.js:ro
+    ports:
+      - "27017:27017"
+    networks:
+      - local-keycloak
+    restart: always
+  postgres:
+    image: postgres:latest
+    restart: unless-stopped
+    container_name: "postgres"
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+    ports:
+      - "5433:5432"
+    networks:
+      - local-keycloak
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  keycloak:
+      depends_on:
+          - postgres
+      build:
+          context: .
+          dockerfile: ./config/Dockerfile
+      container_name: "keycloak"
+      environment:
+          KEYCLOAK_ADMIN: admin
+          KEYCLOAK_ADMIN_PASSWORD: admin
+          KEYCLOAK_LOGLEVEL: DEBUG
+          DB_VENDOR: POSTGRES
+          DB_ADDR: postgres
+          DB_DATABASE: keycloak
+          DB_USER: postgres
+          DB_PASSWORD: 1234
+          ROOT_LOGLEVEL: DEBUG
+      ports:
+          - "8080:8080"
+      expose:
+          - "8080"
+      restart: unless-stopped
+      networks:
+          - local-keycloak
+  eureka-server:
+    image: eureka-server
+    container_name: "eureka-server"
+    ports:
+      - "8761:8761"
+    expose:
+      - "8761"
+    depends_on:
+      - keycloak
+    restart: always
+    networks:
+      - local-keycloak
+  gateway-api:
+    image: gateway-api
+    container_name: "gateway-api"
+    ports:
+      - "9090:9090"
+    expose:
+      - "9090"
+    environment:
+      EUREKA_URL: http://eureka-server:8761/eureka
+      KEYCLOAK_URL: http://localhost:8080/
+      ISSUER_URI: http://localhost:8080/realms/digital-media
+      REDIRECT_URI: http://keycloak:9090/login/oauth2/code/{registrationId}
+    depends_on:
+      - eureka-server
+    restart: always
+    networks:
+      - local-keycloak
+  movie-service:
+    image: movie-service
+    container_name: "movie-service"
+    ports:
+      - "8086:8086"
+    expose:
+      - "8086"
+    environment:
+      EUREKA_URL: http://eureka-server:8761/eureka
+      KEYCLOAK_URL: http://keycloak:8080/
+      ISSUER_URI: http://keycloak:8080/realms/digital-media
+      CERT_URI: http://keycloak:8080/realms/digital-media/protocol/openid-connect/certs
+      REDIRECT_URI: http://movie-service:8086
+      MONGO_URL: mongodb
+    depends_on:
+      - eureka-server
+    restart: always
+    networks:
+      - local-keycloak
+  user-service:
+    image: user-service
+    container_name: "user-service"
+    ports:
+      - "8087:8087"
+    expose:
+      - "8087"
+    environment:
+      EUREKA_URL: http://eureka-server:8761/eureka
+      KEYCLOAK_URL: http://keycloak:8080/
+      ISSUER_URI: http://keycloak:8080/realms/digital-media
+      CERT_URI: http://keycloak:8080/realms/digital-media/protocol/openid-connect/certs
+      REDIRECT_URI: http://user-service:8087
+    depends_on:
+      - eureka-server
+    restart: always
+    networks:
+      - local-keycloak
+  bill-service:
+    image: bill-service
+    container_name: "bill-service"
+    ports:
+      - "8088:8088"
+    expose:
+      - "8088"
+    environment:
+      EUREKA_URL: http://eureka-server:8761/eureka
+      KEYCLOAK_URL: http://keycloak:8080/
+      ISSUER_URI: http://keycloak:8080/realms/digital-media
+      CERT_URI: http://keycloak:8080/realms/digital-media/protocol/openid-connect/certs
+      REDIRECT_URI: http://bill-service:8088
+      URL_USER_SERVICE: http://user-service:8087
+    depends_on:
+      - eureka-server
+    restart: always
+    networks:
+      - local-keycloak
+volumes:
+  mongodb_data_volume:
+    external: false
+  postgres_data:
+  db:
+networks:
+  local-keycloak:

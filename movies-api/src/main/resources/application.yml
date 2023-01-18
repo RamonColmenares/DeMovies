@@ -1,0 +1,56 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: movie-service
+  data:
+    mongodb:
+      host: ${MONGO_URL:localhost}
+      port: 27017
+      password: root
+      username: root
+      authentication-database: admin
+      database: moviesdb
+  main:
+    allow-circular-references: true
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            issuer-uri: ${ISSUER_URI:http://localhost:8080/realms/digital-media}
+            
+        registration:
+          microservicios:
+            provider: keycloak
+            client-id: microservicios
+            client-secret: "**********"
+            scope: openid
+            redirect-uri: ${REDIRECT_URI:http://localhost:8086}
+
+app:
+  cors:
+    allowed-origins: http://localhost:3000
+  realm: digital-media
+  realm-cert: ${CERT_URI:http://localhost:8080/realms/digital-media/protocol/openid-connect/certs}
+
+management:
+  endpoints:
+    web:
+      exposure.include: beans, env, health, info, metrics, mappings
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  show-actuator: true
+  swagger-ui:
+    groups-order: DESC
+    disable-swagger-default-url: true
+
+eureka:
+  client:
+    enabled: true
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
